@@ -1,5 +1,6 @@
 import { Route, Routes } from 'react-router-dom';
 import { RequireAuth } from './auth/RequireAuth';
+import { DashboardPage } from './pages/DashboardPage';
 import { LoginPage } from './pages/LoginPage';
 import { ReceiptDetailPage } from './pages/ReceiptDetailPage';
 import { ReceiptsPage } from './pages/ReceiptsPage';
@@ -23,6 +24,14 @@ export function App() {
         element={
           <RequireAuth>
             <ReceiptDetailPage />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/dashboard"
+        element={
+          <RequireAuth>
+            <DashboardPage />
           </RequireAuth>
         }
       />

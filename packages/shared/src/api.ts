@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { categoryAggregateSchema, categorySchema } from './category';
 import { receiptIdSchema, receiptSchema } from './receipt';
 
 // Schemas das bordas HTTP: todo body/resposta da API é validado por eles.
@@ -21,8 +22,33 @@ export type UploadUrlResponse = z.infer<typeof uploadUrlResponseSchema>;
 export const listReceiptsQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(20),
   cursor: z.string().optional(),
+  // Filtros v2: intervalo de datas usa o GSI1; categoria filtra dentro da
+  // partição do usuário (FilterExpression — nunca Scan).
+  from: z.iso.date().optional(),
+  to: z.iso.date().optional(),
+  category: categorySchema.optional(),
 });
 export type ListReceiptsQuery = z.infer<typeof listReceiptsQuerySchema>;
+
+export const summaryQuerySchema = z.object({
+  from: z.iso.date().optional(),
+  to: z.iso.date().optional(),
+});
+export type SummaryQuery = z.infer<typeof summaryQuerySchema>;
+
+export const summaryResponseSchema = z.object({
+  // Totais all-time por categoria, direto dos itens CAT# (sem varrer recibos).
+  categories: z.array(categoryAggregateSchema),
+  // Janela pedida (default: mês corrente) somada a partir do GSI1.
+  period: z.object({
+    from: z.iso.date(),
+    to: z.iso.date(),
+    totalCents: z.number().int(),
+    receiptCount: z.number().int().nonnegative(),
+  }),
+  evolution: z.array(z.object({ date: z.iso.date(), totalCents: z.number().int() })),
+});
+export type SummaryResponse = z.infer<typeof summaryResponseSchema>;
 
 export const listReceiptsResponseSchema = z.object({
   items: z.array(receiptSchema),

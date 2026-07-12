@@ -128,10 +128,10 @@ Objetivo: gasto ganha categoria e agregados prontos pra dashboard.
 
 Objetivo: valor visível do projeto — números e filtros.
 
-- [ ] API: total do mês, total por categoria (itens `CAT#`), evolução por período (GSI1 `DATE#..DATE#`)
-- [ ] API: filtros por intervalo de datas (GSI1) e por categoria — sem `Scan`
-- [ ] Web: página de dashboard (cards de totais + gráfico de evolução + quebra por categoria)
-- [ ] Web: filtros de data e categoria na listagem
+- [x] API: `GET /summary` — total do período, total por categoria (itens `CAT#`), evolução por dia (GSI1 `DATE#..DATE#`)
+- [x] API: filtros por intervalo de datas (GSI1) e por categoria (FilterExpression na partição) — sem `Scan`
+- [x] Web: página de dashboard (stat tiles + colunas de evolução + barras por categoria)
+- [x] Web: filtros de data e categoria na listagem (paginação por cursor funciona nos dois modos)
 
 **Aceite:** dashboard bate com os recibos cadastrados; toda query cabe num access pattern do §5 do CLAUDE.md.
 

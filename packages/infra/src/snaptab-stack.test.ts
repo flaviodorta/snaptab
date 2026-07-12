@@ -61,6 +61,7 @@ describe('SnaptabStack', () => {
       'POST /receipts/upload-url',
       'GET /receipts',
       'GET /receipts/{id}',
+      'GET /summary',
     ]) {
       template.hasResourceProperties('AWS::ApiGatewayV2::Route', {
         RouteKey: routeKey,

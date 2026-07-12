@@ -1,6 +1,7 @@
 import {
   listReceiptsResponseSchema,
   receiptDetailResponseSchema,
+  summaryResponseSchema,
   uploadUrlRequestSchema,
   uploadUrlResponseSchema,
   type Receipt,
@@ -12,21 +13,30 @@ import {
   useQueryClient,
 } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
+import { hasActiveFilters, receiptsQueryString, type ReceiptFilters } from '../lib/query-string';
 import { apiFetch } from './client';
 
 const RECEIPTS_KEY = ['receipts'];
 
-function useReceiptsInfinite(polling: boolean) {
+function useReceiptsInfinite(filters: ReceiptFilters, polling: boolean) {
   return useInfiniteQuery({
-    queryKey: RECEIPTS_KEY,
+    queryKey: [...RECEIPTS_KEY, filters],
     queryFn: ({ pageParam }) =>
       apiFetch(
-        pageParam ? `/receipts?cursor=${encodeURIComponent(pageParam)}` : '/receipts',
+        `/receipts${receiptsQueryString({ ...filters, cursor: pageParam })}`,
         listReceiptsResponseSchema,
       ),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (last) => last.nextCursor,
     refetchInterval: polling ? 3000 : false,
+  });
+}
+
+export function useSummary(from: string, to: string) {
+  return useQuery({
+    queryKey: ['summary', from, to],
+    queryFn: () =>
+      apiFetch(`/summary?from=${from}&to=${to}`, summaryResponseSchema),
   });
 }
 
@@ -70,9 +80,11 @@ function useUploadReceipt(onUploaded: (receiptId: string) => void) {
 // Estado completo da tela de recibos: lista paginada + uploads "processando".
 // Enquanto houver recibo pendente (upload feito, processor ainda não gravou),
 // a lista fica em polling de 3s; quando o id aparece, sai do conjunto pendente.
-export function useReceiptsPage() {
+// Com filtros ativos o recibo novo pode nunca aparecer na lista filtrada,
+// então o rastreio de pendência só roda na visão sem filtros.
+export function useReceiptsPage(filters: ReceiptFilters = {}) {
   const [pendingIds, setPendingIds] = useState<string[]>([]);
-  const query = useReceiptsInfinite(pendingIds.length > 0);
+  const query = useReceiptsInfinite(filters, pendingIds.length > 0);
 
   const receipts: Receipt[] = useMemo(
     () => query.data?.pages.flatMap((page) => page.items) ?? [],
@@ -86,7 +98,9 @@ export function useReceiptsPage() {
     if (stillPending.length !== pendingIds.length) setPendingIds(stillPending);
   }, [receipts, pendingIds]);
 
-  const upload = useUploadReceipt((receiptId) => setPendingIds((ids) => [...ids, receiptId]));
+  const upload = useUploadReceipt((receiptId) => {
+    if (!hasActiveFilters(filters)) setPendingIds((ids) => [...ids, receiptId]);
+  });
 
   return { query, receipts, pendingCount: pendingIds.length, upload };
 }

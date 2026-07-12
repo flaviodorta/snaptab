@@ -104,6 +104,52 @@ describe('handler receipts-api', () => {
     expect(body.imageUrl).toContain(`user-123/${ULID}`);
   });
 
+  it('GET /receipts com filtros: datas usam GSI1, categoria vira FilterExpression', async () => {
+    ddbMock.on(QueryCommand).resolves({ Items: [] });
+
+    const result = await handler(
+      makeEvent({
+        routeKey: 'GET /receipts',
+        sub: 'user-123',
+        queryStringParameters: { from: '2026-07-01', to: '2026-07-31', category: 'Saúde' },
+      }),
+    );
+
+    expect(result.statusCode).toBe(200);
+    const input = ddbMock.commandCalls(QueryCommand)[0]?.args[0].input;
+    expect(input?.IndexName).toBe('GSI1');
+    expect(input?.FilterExpression).toBe('#cat = :category');
+  });
+
+  it('GET /receipts: 400 pra intervalo invertido e categoria inexistente', async () => {
+    const badQueries: Record<string, string>[] = [
+      { from: '2026-07-31', to: '2026-07-01' },
+      { category: 'Viagem' },
+    ];
+    for (const queryStringParameters of badQueries) {
+      const result = await handler(
+        makeEvent({ routeKey: 'GET /receipts', sub: 'user-123', queryStringParameters }),
+      );
+      expect(result.statusCode).toBe(400);
+    }
+  });
+
+  it('GET /summary: 200 com categorias, período e evolução', async () => {
+    ddbMock.on(QueryCommand).resolves({ Items: [] });
+
+    const result = await handler(
+      makeEvent({
+        routeKey: 'GET /summary',
+        sub: 'user-123',
+        queryStringParameters: { from: '2026-07-01', to: '2026-07-31' },
+      }),
+    );
+
+    expect(result.statusCode).toBe(200);
+    const body = JSON.parse(result.body ?? '{}') as { period: { from: string; to: string } };
+    expect(body.period).toMatchObject({ from: '2026-07-01', to: '2026-07-31' });
+  });
+
   it('GET /receipts/{id}: 404 pra id inexistente ou fora do formato', async () => {
     ddbMock.on(GetCommand).resolves({});
 

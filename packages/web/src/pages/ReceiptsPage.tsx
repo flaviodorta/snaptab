@@ -1,15 +1,14 @@
-import { useRef, type ChangeEvent } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { useQueryClient } from '@tanstack/react-query';
+import { CATEGORIES } from '@snaptab/shared';
+import { useState, useRef, type ChangeEvent } from 'react';
+import { Link } from 'react-router-dom';
 import { useReceiptsPage } from '../api/receipts';
-import { useAuth } from '../auth/AuthContext';
+import { Topbar } from '../components/Topbar';
 import { formatBRL, formatDate } from '../lib/format';
+import type { ReceiptFilters } from '../lib/query-string';
 
 export function ReceiptsPage() {
-  const { email, signOut } = useAuth();
-  const navigate = useNavigate();
-  const queryClient = useQueryClient();
-  const { query, receipts, pendingCount, upload } = useReceiptsPage();
+  const [filters, setFilters] = useState<ReceiptFilters>({});
+  const { query, receipts, pendingCount, upload } = useReceiptsPage(filters);
   const fileInput = useRef<HTMLInputElement>(null);
 
   function onFileChosen(e: ChangeEvent<HTMLInputElement>) {
@@ -18,23 +17,20 @@ export function ReceiptsPage() {
     e.target.value = ''; // permite re-selecionar o mesmo arquivo
   }
 
-  function onLogout() {
-    signOut();
-    queryClient.clear(); // nada de dado de um usuário vazar pro próximo
-    navigate('/login');
+  function setFilter(patch: Partial<ReceiptFilters>) {
+    setFilters((f) => {
+      const next = { ...f, ...patch };
+      // chave ausente (não string vazia) mantém a queryKey limpa
+      for (const key of ['from', 'to', 'category'] as const) {
+        if (!next[key]) delete next[key];
+      }
+      return next;
+    });
   }
 
   return (
     <main className="page">
-      <header className="topbar">
-        <h1>Snaptab</h1>
-        <div className="topbar-right">
-          <span className="user-email">{email}</span>
-          <button className="ghost" onClick={onLogout}>
-            Sair
-          </button>
-        </div>
-      </header>
+      <Topbar />
 
       <section className="upload-row">
         <input
@@ -57,11 +53,53 @@ export function ReceiptsPage() {
         )}
       </section>
 
+      <div className="filters">
+        <label>
+          De
+          <input
+            type="date"
+            value={filters.from ?? ''}
+            onChange={(e) => setFilter({ from: e.target.value })}
+          />
+        </label>
+        <label>
+          Até
+          <input
+            type="date"
+            value={filters.to ?? ''}
+            onChange={(e) => setFilter({ to: e.target.value })}
+          />
+        </label>
+        <label>
+          Categoria
+          <select
+            value={filters.category ?? ''}
+            onChange={(e) => setFilter({ category: e.target.value })}
+          >
+            <option value="">Todas</option>
+            {CATEGORIES.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+        </label>
+        {(filters.from ?? filters.to ?? filters.category) && (
+          <button className="ghost" onClick={() => setFilters({})}>
+            Limpar
+          </button>
+        )}
+      </div>
+
       {query.isLoading && <p className="center-note">Carregando recibos…</p>}
       {query.isError && <p className="error">Erro ao carregar: {query.error.message}</p>}
 
       {receipts.length === 0 && query.isSuccess && pendingCount === 0 && (
-        <p className="center-note">Nenhum recibo ainda — fotografe o primeiro!</p>
+        <p className="center-note">
+          {filters.from ?? filters.to ?? filters.category
+            ? 'Nenhum recibo com esses filtros.'
+            : 'Nenhum recibo ainda — fotografe o primeiro!'}
+        </p>
       )}
 
       <ul className="receipt-list">

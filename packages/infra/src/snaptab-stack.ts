@@ -187,6 +187,11 @@ export class SnaptabStack extends Stack {
       methods: [HttpMethod.GET],
       integration: receiptsApiIntegration,
     });
+    this.httpApi.addRoutes({
+      path: '/summary',
+      methods: [HttpMethod.GET],
+      integration: receiptsApiIntegration,
+    });
 
     const processorFn = new NodejsFunction(this, 'ProcessorFn', {
       entry: apiEntry('processor/handler.ts'),

@@ -1,7 +1,7 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { S3Client } from '@aws-sdk/client-s3';
 import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
-import { listReceiptsQuerySchema, receiptIdSchema } from '@snaptab/shared';
+import { listReceiptsQuerySchema, receiptIdSchema, summaryQuerySchema } from '@snaptab/shared';
 import type {
   APIGatewayProxyEventV2WithJWTAuthorizer,
   APIGatewayProxyStructuredResultV2,
@@ -11,6 +11,7 @@ import { requireEnv } from '../lib/env';
 import { jsonResponse } from '../lib/http';
 import { decodeCursor } from './cursor';
 import { getReceipt } from './get-receipt';
+import { getSummary } from './get-summary';
 import { listReceipts } from './list-receipts';
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
@@ -29,9 +30,37 @@ export async function handler(
       return list(event, userId);
     case 'GET /receipts/{id}':
       return detail(event, userId);
+    case 'GET /summary':
+      return summary(event, userId);
     default:
       return jsonResponse(404, { error: 'rota desconhecida' });
   }
+}
+
+async function summary(
+  event: APIGatewayProxyEventV2WithJWTAuthorizer,
+  userId: string,
+): Promise<APIGatewayProxyStructuredResultV2> {
+  const query = summaryQuerySchema.safeParse(event.queryStringParameters ?? {});
+  if (!query.success) {
+    return jsonResponse(400, { error: 'parâmetros inválidos: from/to no formato YYYY-MM-DD' });
+  }
+  // Default: mês corrente (UTC — mesma referência usada pelo processor).
+  const today = new Date().toISOString().slice(0, 10);
+  const from = query.data.from ?? `${today.slice(0, 8)}01`;
+  const to = query.data.to ?? today;
+  if (from > to) {
+    return jsonResponse(400, { error: 'intervalo inválido: from depois de to' });
+  }
+
+  const response = await getSummary({
+    ddb,
+    tableName: requireEnv('TABLE_NAME'),
+    userId,
+    from,
+    to,
+  });
+  return jsonResponse(200, response);
 }
 
 async function list(
@@ -43,17 +72,29 @@ async function list(
     return jsonResponse(400, { error: 'parâmetros inválidos: limit deve ser 1–50' });
   }
 
-  const cursorSk = query.data.cursor ? decodeCursor(query.data.cursor) : null;
-  if (query.data.cursor && !cursorSk) {
+  const { limit, cursor: rawCursor, from, to, category } = query.data;
+  if (from && to && from > to) {
+    return jsonResponse(400, { error: 'intervalo inválido: from depois de to' });
+  }
+
+  const cursor = rawCursor ? decodeCursor(rawCursor) : null;
+  if (rawCursor && !cursor) {
     return jsonResponse(400, { error: 'cursor inválido' });
+  }
+  // Query por data pagina pelo GSI1: o cursor precisa do GSI1SK.
+  if (cursor && (from ?? to) && !cursor.gsi1sk) {
+    return jsonResponse(400, { error: 'cursor inválido para este filtro' });
   }
 
   const response = await listReceipts({
     ddb,
     tableName: requireEnv('TABLE_NAME'),
     userId,
-    limit: query.data.limit,
-    cursorSk,
+    limit,
+    cursor,
+    ...(from ? { from } : {}),
+    ...(to ? { to } : {}),
+    ...(category ? { category } : {}),
   });
   return jsonResponse(200, response);
 }
