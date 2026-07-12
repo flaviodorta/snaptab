@@ -56,6 +56,13 @@ describe('SnaptabStack', () => {
     });
   });
 
+  it('rota de upload protegida pelo authorizer JWT', () => {
+    template.hasResourceProperties('AWS::ApiGatewayV2::Route', {
+      RouteKey: 'POST /receipts/upload-url',
+      AuthorizationType: 'JWT',
+    });
+  });
+
   it('cognito e http api presentes', () => {
     template.resourceCountIs('AWS::Cognito::UserPool', 1);
     template.resourceCountIs('AWS::ApiGatewayV2::Api', 1);

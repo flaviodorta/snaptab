@@ -56,11 +56,11 @@ Objetivo: todos os recursos AWS declarados, sintetizando sem erro (deploy ainda 
 
 Objetivo: primeiro fluxo fim-a-fim parcial — usuário autenticado consegue subir imagem pro S3.
 
-- [ ] Lambda `upload-url`: valida body com zod, gera presigned PUT (key = `<userId>/<receiptId>`)
-- [ ] Rota `POST /receipts/upload-url` protegida por JWT no API Gateway
-- [ ] Permissão IAM mínima: `s3:PutObject` só no bucket/prefixo
-- [ ] Teste unitário da montagem de key e validação do body
-- [ ] Primeiro `cdk deploy` real + teste manual com `curl`/token do Cognito
+- [x] Lambda `upload-url`: valida body com zod, gera presigned PUT (key = `<userId>/<receiptId>`)
+- [x] Rota `POST /receipts/upload-url` protegida por JWT no API Gateway
+- [x] Permissão IAM mínima: `s3:PutObject` só nos objetos do bucket
+- [x] Teste unitário da montagem de key e validação do body
+- [x] Primeiro `cdk deploy` real + teste manual com `curl`/token do Cognito (401 sem token, 201 com token, 400 body inválido, 403 content-type divergente, objeto no S3, evento na fila)
 
 **Aceite:** upload de uma imagem via presigned URL aparece no bucket e enfileira mensagem na `ingest-queue`.
 

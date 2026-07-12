@@ -1,8 +1,12 @@
+import { fileURLToPath } from 'node:url';
 import { CfnOutput, Duration, RemovalPolicy, Stack, type StackProps } from 'aws-cdk-lib';
-import { CorsHttpMethod, HttpApi } from 'aws-cdk-lib/aws-apigatewayv2';
+import { CorsHttpMethod, HttpApi, HttpMethod } from 'aws-cdk-lib/aws-apigatewayv2';
 import { HttpJwtAuthorizer } from 'aws-cdk-lib/aws-apigatewayv2-authorizers';
+import { HttpLambdaIntegration } from 'aws-cdk-lib/aws-apigatewayv2-integrations';
 import { AccountRecovery, UserPool, type UserPoolClient } from 'aws-cdk-lib/aws-cognito';
 import { AttributeType, BillingMode, ProjectionType, Table } from 'aws-cdk-lib/aws-dynamodb';
+import { Runtime } from 'aws-cdk-lib/aws-lambda';
+import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import {
   BlockPublicAccess,
   Bucket,
@@ -17,6 +21,13 @@ import type { Construct } from 'constructs';
 // Timeout que o processor vai usar na Fase 4. A visibilidade da fila é 6x isso,
 // como a AWS recomenda para event source mapping (evita reentrega durante retry).
 const PROCESSOR_TIMEOUT = Duration.seconds(60);
+
+// Handlers do @snaptab/api, bundlados pelo esbuild via NodejsFunction.
+function apiEntry(file: string): string {
+  return fileURLToPath(new URL(`../../api/src/${file}`, import.meta.url));
+}
+
+const DEPS_LOCK_FILE = fileURLToPath(new URL('../../../pnpm-lock.yaml', import.meta.url));
 
 export class SnaptabStack extends Stack {
   readonly table: Table;
@@ -102,7 +113,8 @@ export class SnaptabStack extends Stack {
     });
     this.userPoolClient = this.userPool.addClient('WebClient', {
       // SPA: SRP sem client secret (o browser não guarda segredo).
-      authFlows: { userSrp: true },
+      // adminUserPassword permite gerar token via CLI pra smoke tests.
+      authFlows: { userSrp: true, adminUserPassword: true },
     });
 
     // ─── API: HTTP API com JWT authorizer ──────────────────────────────────
@@ -121,6 +133,26 @@ export class SnaptabStack extends Stack {
         allowHeaders: ['authorization', 'content-type'],
         maxAge: Duration.hours(1),
       },
+    });
+
+    // ─── Lambdas + rotas ───────────────────────────────────────────────────
+    const uploadUrlFn = new NodejsFunction(this, 'UploadUrlFn', {
+      entry: apiEntry('upload-url/handler.ts'),
+      handler: 'handler',
+      runtime: Runtime.NODEJS_20_X,
+      memorySize: 256,
+      timeout: Duration.seconds(10),
+      depsLockFilePath: DEPS_LOCK_FILE,
+      environment: { BUCKET_NAME: this.receiptsBucket.bucketName },
+    });
+    // Least privilege: só PutObject (e afins) nos objetos do bucket de recibos.
+    this.receiptsBucket.grantPut(uploadUrlFn);
+
+    this.httpApi.addRoutes({
+      path: '/receipts/upload-url',
+      methods: [HttpMethod.POST],
+      // Sem authorizer explícito → herda o JWT do Cognito (defaultAuthorizer).
+      integration: new HttpLambdaIntegration('UploadUrlIntegration', uploadUrlFn),
     });
 
     // ─── Outputs que o web/api consomem como config ────────────────────────
