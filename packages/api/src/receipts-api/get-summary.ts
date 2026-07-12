@@ -35,6 +35,8 @@ export async function getSummary(params: {
     .map((item) => categoryAggregateSchema.safeParse(item))
     .filter((parsed) => parsed.success)
     .map((parsed) => parsed.data)
+    // Agregado zerado (todos os recibos migraram de categoria) fica fora.
+    .filter((agg) => agg.receiptCount > 0)
     .sort((a, b) => b.totalCents - a.totalCents);
 
   let totalCents = 0;

@@ -2,24 +2,9 @@ import { describe, expect, it } from 'vitest';
 import ilegivel from './__fixtures__/ilegivel.json';
 import mercado from './__fixtures__/mercado.json';
 import padaria from './__fixtures__/padaria.json';
-import { parseDateToIso, parseExpense, parseMoneyToCents, UNKNOWN_MERCHANT } from './parse-expense';
+import { parseDateToIso, parseExpense, UNKNOWN_MERCHANT } from './parse-expense';
 
-describe('parseMoneyToCents', () => {
-  it('converte formatos BR e US pra centavos', () => {
-    expect(parseMoneyToCents('R$ 187,45')).toBe(18745);
-    expect(parseMoneyToCents('R$ 1.234,56')).toBe(123456);
-    expect(parseMoneyToCents('1,234.56')).toBe(123456);
-    expect(parseMoneyToCents('123.45')).toBe(12345);
-    expect(parseMoneyToCents('12,5')).toBe(1250);
-    expect(parseMoneyToCents('187')).toBe(18700);
-    expect(parseMoneyToCents('1.234')).toBe(123400); // separador de milhar
-  });
-
-  it('retorna null sem dígitos', () => {
-    expect(parseMoneyToCents('R$ --')).toBeNull();
-    expect(parseMoneyToCents('')).toBeNull();
-  });
-});
+// parseMoneyToCents mora em shared/ (testado lá) — usado também pelo web.
 
 describe('parseDateToIso', () => {
   it('aceita formatos comuns de recibo BR', () => {

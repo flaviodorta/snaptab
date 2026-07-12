@@ -1,18 +1,24 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { S3Client } from '@aws-sdk/client-s3';
 import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
-import { listReceiptsQuerySchema, receiptIdSchema, summaryQuerySchema } from '@snaptab/shared';
+import {
+  listReceiptsQuerySchema,
+  receiptIdSchema,
+  summaryQuerySchema,
+  updateReceiptRequestSchema,
+} from '@snaptab/shared';
 import type {
   APIGatewayProxyEventV2WithJWTAuthorizer,
   APIGatewayProxyStructuredResultV2,
 } from 'aws-lambda';
 import { getUserId } from '../lib/auth';
 import { requireEnv } from '../lib/env';
-import { jsonResponse } from '../lib/http';
+import { jsonResponse, parseJsonBody } from '../lib/http';
 import { decodeCursor } from './cursor';
 import { getReceipt } from './get-receipt';
 import { getSummary } from './get-summary';
 import { listReceipts } from './list-receipts';
+import { updateReceipt } from './update-receipt';
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 const s3 = new S3Client({});
@@ -32,9 +38,42 @@ export async function handler(
       return detail(event, userId);
     case 'GET /summary':
       return summary(event, userId);
+    case 'PATCH /receipts/{id}':
+      return update(event, userId);
     default:
       return jsonResponse(404, { error: 'rota desconhecida' });
   }
+}
+
+async function update(
+  event: APIGatewayProxyEventV2WithJWTAuthorizer,
+  userId: string,
+): Promise<APIGatewayProxyStructuredResultV2> {
+  const receiptId = receiptIdSchema.safeParse(event.pathParameters?.id);
+  if (!receiptId.success) {
+    return jsonResponse(404, { error: 'recibo não encontrado' });
+  }
+  const patch = updateReceiptRequestSchema.safeParse(parseJsonBody(event.body));
+  if (!patch.success) {
+    return jsonResponse(400, {
+      error: 'body inválido: informe ao menos um campo (merchant, totalCents, date, category)',
+    });
+  }
+
+  const result = await updateReceipt({
+    ddb,
+    tableName: requireEnv('TABLE_NAME'),
+    userId,
+    receiptId: receiptId.data,
+    patch: patch.data,
+  });
+  if (result === 'not-found') {
+    return jsonResponse(404, { error: 'recibo não encontrado' });
+  }
+  if (result === 'conflict') {
+    return jsonResponse(409, { error: 'conflito de edição — recarregue e tente de novo' });
+  }
+  return jsonResponse(200, result);
 }
 
 async function summary(

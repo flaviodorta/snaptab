@@ -64,6 +64,26 @@ export const receiptDetailResponseSchema = z.object({
 });
 export type ReceiptDetailResponse = z.infer<typeof receiptDetailResponseSchema>;
 
+// Correção manual (v2): campos que o usuário pode consertar quando o OCR erra.
+// Qualquer edição marca o recibo como 'processed' — o dado passou por revisão
+// humana, que é mais confiável que o OCR.
+export const updateReceiptRequestSchema = z
+  .object({
+    merchant: z.string().min(1).optional(),
+    totalCents: z.number().int().nonnegative().optional(),
+    date: z.iso.date().optional(),
+    category: categorySchema.optional(),
+  })
+  .refine((patch) => Object.values(patch).some((v) => v !== undefined), {
+    message: 'pelo menos um campo editável é obrigatório',
+  });
+export type UpdateReceiptRequest = z.infer<typeof updateReceiptRequestSchema>;
+
+export const updateReceiptResponseSchema = z.object({
+  receipt: receiptSchema,
+});
+export type UpdateReceiptResponse = z.infer<typeof updateReceiptResponseSchema>;
+
 export const apiErrorSchema = z.object({
   error: z.string(),
 });

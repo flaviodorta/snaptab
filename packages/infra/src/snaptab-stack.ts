@@ -169,7 +169,8 @@ export class SnaptabStack extends Stack {
         BUCKET_NAME: this.receiptsBucket.bucketName,
       },
     });
-    this.table.grantReadData(receiptsApiFn);
+    // Leitura + escrita: o PATCH de correção manual atualiza recibo e agregados.
+    this.table.grantReadWriteData(receiptsApiFn);
     // Presigned GET da imagem é assinado com as credenciais desta role.
     this.receiptsBucket.grantRead(receiptsApiFn);
 
@@ -190,6 +191,11 @@ export class SnaptabStack extends Stack {
     this.httpApi.addRoutes({
       path: '/summary',
       methods: [HttpMethod.GET],
+      integration: receiptsApiIntegration,
+    });
+    this.httpApi.addRoutes({
+      path: '/receipts/{id}',
+      methods: [HttpMethod.PATCH],
       integration: receiptsApiIntegration,
     });
 

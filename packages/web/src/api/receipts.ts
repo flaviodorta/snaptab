@@ -2,9 +2,11 @@ import {
   listReceiptsResponseSchema,
   receiptDetailResponseSchema,
   summaryResponseSchema,
+  updateReceiptResponseSchema,
   uploadUrlRequestSchema,
   uploadUrlResponseSchema,
   type Receipt,
+  type UpdateReceiptRequest,
 } from '@snaptab/shared';
 import {
   useInfiniteQuery,
@@ -44,6 +46,23 @@ export function useReceipt(receiptId: string) {
   return useQuery({
     queryKey: [...RECEIPTS_KEY, receiptId],
     queryFn: () => apiFetch(`/receipts/${receiptId}`, receiptDetailResponseSchema),
+  });
+}
+
+export function useUpdateReceipt(receiptId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (patch: UpdateReceiptRequest) =>
+      apiFetch(`/receipts/${receiptId}`, updateReceiptResponseSchema, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(patch),
+      }),
+    onSuccess: () => {
+      // Lista, detalhe e dashboard derivam do que mudou.
+      void queryClient.invalidateQueries({ queryKey: RECEIPTS_KEY });
+      void queryClient.invalidateQueries({ queryKey: ['summary'] });
+    },
   });
 }
 

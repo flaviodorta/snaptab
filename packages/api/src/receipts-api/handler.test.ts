@@ -1,4 +1,9 @@
-import { DynamoDBDocumentClient, GetCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
+import {
+  DynamoDBDocumentClient,
+  GetCommand,
+  QueryCommand,
+  TransactWriteCommand,
+} from '@aws-sdk/lib-dynamodb';
 import { mockClient } from 'aws-sdk-client-mock';
 import type { APIGatewayProxyEventV2WithJWTAuthorizer } from 'aws-lambda';
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -28,11 +33,13 @@ function makeEvent(overrides: {
   sub?: string;
   pathParameters?: Record<string, string>;
   queryStringParameters?: Record<string, string>;
+  body?: string;
 }): APIGatewayProxyEventV2WithJWTAuthorizer {
   const event = {
     routeKey: overrides.routeKey,
     pathParameters: overrides.pathParameters,
     queryStringParameters: overrides.queryStringParameters,
+    body: overrides.body,
     requestContext: {
       authorizer: overrides.sub
         ? { jwt: { claims: { sub: overrides.sub }, scopes: [] } }
@@ -148,6 +155,38 @@ describe('handler receipts-api', () => {
     expect(result.statusCode).toBe(200);
     const body = JSON.parse(result.body ?? '{}') as { period: { from: string; to: string } };
     expect(body.period).toMatchObject({ from: '2026-07-01', to: '2026-07-31' });
+  });
+
+  it('PATCH /receipts/{id}: 200 edita e retorna o recibo atualizado', async () => {
+    ddbMock.on(GetCommand).resolves({ Item: item });
+    ddbMock.on(TransactWriteCommand).resolves({});
+
+    const result = await handler(
+      makeEvent({
+        routeKey: 'PATCH /receipts/{id}',
+        sub: 'user-123',
+        pathParameters: { id: ULID },
+        body: '{"totalCents":9999}',
+      }),
+    );
+
+    expect(result.statusCode).toBe(200);
+    const body = JSON.parse(result.body ?? '{}') as { receipt: { totalCents: number } };
+    expect(body.receipt.totalCents).toBe(9999);
+  });
+
+  it('PATCH /receipts/{id}: 400 pra body vazio ou inválido', async () => {
+    for (const body of ['{}', '{"totalCents":-1}', '{"category":"Viagem"}', 'não é json']) {
+      const result = await handler(
+        makeEvent({
+          routeKey: 'PATCH /receipts/{id}',
+          sub: 'user-123',
+          pathParameters: { id: ULID },
+          body,
+        }),
+      );
+      expect(result.statusCode).toBe(400);
+    }
   });
 
   it('GET /receipts/{id}: 404 pra id inexistente ou fora do formato', async () => {

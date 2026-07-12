@@ -141,10 +141,10 @@ Objetivo: valor visível do projeto — números e filtros.
 
 Objetivo: usuário conserta o que o OCR errou.
 
-- [ ] `PATCH /receipts/:id` — campos editáveis: total, data, estabelecimento, categoria (validação zod)
-- [ ] Ajuste dos agregados `CAT#` quando total/categoria mudam (decrementa antigo, incrementa novo)
-- [ ] Web: edição inline no detalhe do recibo
-- [ ] Testes do recálculo de agregados
+- [x] `PATCH /receipts/:id` — campos editáveis: total, data, estabelecimento, categoria (validação zod; edição sempre resulta em `processed`)
+- [x] Ajuste dos agregados `CAT#` na mesma transação, com lock otimista nos campos-base (edição concorrente → 409)
+- [x] Web: edição inline no detalhe do recibo (PATCH parcial: só os campos que mudaram)
+- [x] Testes do recálculo de agregados (`computeAggregateOps` puro + transação mockada)
 
 **Aceite (marco v2):** editar um recibo atualiza lista, detalhe e dashboard de forma consistente.
 
