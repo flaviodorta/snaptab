@@ -27,15 +27,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // Sessão persistida no localStorage sobrevive a reload — mas só conta
     // se o token ainda é válido/renovável.
-    void cognito.getIdToken().then((token) => {
-      setEmail(token ? cognito.getCurrentEmail() : null);
+    void cognito.getSessionEmail().then((sessionEmail) => {
+      setEmail(sessionEmail);
       setInitializing(false);
     });
   }, []);
 
   const signIn = useCallback(async (emailInput: string, password: string) => {
     await cognito.signIn(emailInput, password);
-    setEmail(cognito.getCurrentEmail());
+    setEmail((await cognito.getSessionEmail()) ?? emailInput);
   }, []);
 
   const signOut = useCallback(() => {

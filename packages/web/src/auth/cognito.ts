@@ -51,8 +51,22 @@ export function signOut(): void {
   pool.getCurrentUser()?.signOut();
 }
 
-export function getCurrentEmail(): string | null {
-  return pool.getCurrentUser()?.getUsername() ?? null;
+// O email vem das claims do ID token — NÃO de getUsername(): com
+// usernameAttributes=email o Cognito gera um username UUID interno,
+// e é isso que getUsername() devolve.
+export function getSessionEmail(): Promise<string | null> {
+  const user = pool.getCurrentUser();
+  if (!user) return Promise.resolve(null);
+  return new Promise((resolve) => {
+    user.getSession((err: Error | null, session: CognitoUserSession | null) => {
+      if (err || !session?.isValid()) {
+        resolve(null);
+        return;
+      }
+      const email: unknown = session.getIdToken().payload.email;
+      resolve(typeof email === 'string' ? email : null);
+    });
+  });
 }
 
 // null = sem sessão válida (e sem como renovar). getSession renova sozinho
