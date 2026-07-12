@@ -1,5 +1,5 @@
 import { AnalyzeExpenseCommand, TextractClient } from '@aws-sdk/client-textract';
-import { DynamoDBDocumentClient, PutCommand } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, TransactWriteCommand } from '@aws-sdk/lib-dynamodb';
 import { mockClient } from 'aws-sdk-client-mock';
 import type { SQSEvent } from 'aws-lambda';
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -45,22 +45,23 @@ beforeEach(() => {
 });
 
 describe('handler processor', () => {
-  it('caminho feliz: OCR → item processed, sem falhas no batch', async () => {
+  it('caminho feliz: OCR → item processed e categorizado + agregado na transação', async () => {
     textractMock.on(AnalyzeExpenseCommand).resolves(mercado as never);
-    ddbMock.on(PutCommand).resolves({});
+    ddbMock.on(TransactWriteCommand).resolves({});
 
     const result = await handler(sqsEvent(s3EventBody(KEY)));
 
     expect(result.batchItemFailures).toEqual([]);
-    const item = ddbMock.commandCalls(PutCommand)[0]?.args[0].input.Item;
-    expect(item).toMatchObject({
+    const items = ddbMock.commandCalls(TransactWriteCommand)[0]?.args[0].input.TransactItems;
+    expect(items?.[0]?.Put?.Item).toMatchObject({
       SK: `RECEIPT#${ULID}`,
       merchant: 'SUPERMERCADO BOM PRECO LTDA',
       totalCents: 118745,
       date: '2026-07-10',
       status: 'processed',
-      category: 'Outros',
+      category: 'Mercado',
     });
+    expect(items?.[1]?.Update?.Key).toEqual({ PK: 'USER#user-123', SK: 'CAT#Mercado' });
   });
 
   it('s3:TestEvent: ack sem chamar Textract', async () => {
@@ -89,13 +90,19 @@ describe('handler processor', () => {
 
   it('documento ilegível: grava item failed e acka', async () => {
     textractMock.on(AnalyzeExpenseCommand).rejects(namedError('UnsupportedDocumentException'));
-    ddbMock.on(PutCommand).resolves({});
+    ddbMock.on(TransactWriteCommand).resolves({});
 
     const result = await handler(sqsEvent(s3EventBody(KEY)));
 
     expect(result.batchItemFailures).toEqual([]);
-    const item = ddbMock.commandCalls(PutCommand)[0]?.args[0].input.Item;
-    expect(item).toMatchObject({ status: 'failed', totalCents: 0, merchant: 'Desconhecido' });
+    const items = ddbMock.commandCalls(TransactWriteCommand)[0]?.args[0].input.TransactItems;
+    expect(items).toHaveLength(1); // failed não entra no agregado
+    expect(items?.[0]?.Put?.Item).toMatchObject({
+      status: 'failed',
+      totalCents: 0,
+      merchant: 'Desconhecido',
+      category: 'Outros',
+    });
   });
 
   it('falha só nas mensagens quebradas do batch, não no batch todo', async () => {

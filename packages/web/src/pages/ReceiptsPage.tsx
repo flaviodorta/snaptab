@@ -70,7 +70,12 @@ export function ReceiptsPage() {
             <Link className="receipt-card" to={`/receipts/${receipt.receiptId}`}>
               <div className="receipt-main">
                 <span className="merchant">{receipt.merchant}</span>
-                <span className="date">{formatDate(receipt.date)}</span>
+                <span className="date">
+                  {formatDate(receipt.date)}
+                  {receipt.category !== 'Outros' && (
+                    <span className="badge-category">{receipt.category}</span>
+                  )}
+                </span>
               </div>
               <div className="receipt-side">
                 <span className="total">{formatBRL(receipt.totalCents)}</span>

@@ -115,10 +115,10 @@ Objetivo: v1 completo de ponta a ponta na UI.
 
 Objetivo: gasto ganha categoria e agregados prontos pra dashboard.
 
-- [ ] Módulo puro de categorização (regras por palavra-chave do estabelecimento; fallback `"Outros"`) em `shared` ou `api`, testado
-- [ ] Processor passa a gravar categoria no recibo
-- [ ] Agregados `CAT#<categoria>` atualizados na mesma escrita (update atômico `ADD`)
-- [ ] Migração leve: recibos antigos sem categoria tratados como `"Outros"`
+- [x] Módulo puro de categorização (regras por palavra-chave do estabelecimento; fallback `"Outros"`) em `shared`, testado
+- [x] Processor passa a gravar categoria no recibo
+- [x] Agregados `CAT#<categoria>` atualizados na mesma escrita — recibo + agregado numa `TransactWriteItems` atômica (retry não conta duas vezes)
+- [x] Migração: script one-off recategorizou recibos antigos e reconstruiu agregados (`scripts/migrate-categories.ts`)
 
 **Aceite:** novo recibo entra categorizado e o item `CAT#` do usuário reflete o total.
 

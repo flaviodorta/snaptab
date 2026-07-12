@@ -16,3 +16,13 @@ export type Category = z.infer<typeof categorySchema>;
 
 // Fallback quando nenhuma regra de palavra-chave casa com o estabelecimento.
 export const DEFAULT_CATEGORY: Category = 'Outros';
+
+// Item de agregado CAT#<categoria>: mantido atomicamente a cada escrita de
+// recibo (ADD), pra o dashboard ler totais sem varrer recibos.
+export const categoryAggregateSchema = z.object({
+  userId: z.string().min(1),
+  category: categorySchema,
+  totalCents: z.number().int(),
+  receiptCount: z.number().int().nonnegative(),
+});
+export type CategoryAggregate = z.infer<typeof categoryAggregateSchema>;

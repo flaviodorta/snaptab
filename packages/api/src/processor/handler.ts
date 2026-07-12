@@ -2,7 +2,7 @@ import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { AnalyzeExpenseCommand, TextractClient } from '@aws-sdk/client-textract';
 import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import {
-  DEFAULT_CATEGORY,
+  categorize,
   parseReceiptObjectKey,
   receiptSchema,
   s3ObjectCreatedEventSchema,
@@ -97,7 +97,7 @@ async function processReceipt(
     merchant: parsed.merchant,
     totalCents: parsed.totalCents ?? 0,
     date: parsed.date ?? now.slice(0, 10),
-    category: DEFAULT_CATEGORY,
+    category: categorize(parsed.merchant),
     status: parsed.totalCents !== null ? 'processed' : 'failed',
     createdAt: now,
     updatedAt: now,

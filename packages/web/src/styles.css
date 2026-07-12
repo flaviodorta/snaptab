@@ -186,6 +186,14 @@ button.ghost {
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
+.badge-category {
+  background: #eff6ff;
+  color: var(--accent-dark);
+  font-size: 0.75rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  margin-left: 0.5rem;
+}
 .badge-failed {
   background: #fef2f2;
   color: var(--danger);
