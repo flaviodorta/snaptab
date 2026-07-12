@@ -71,6 +71,15 @@ describe('SnaptabStack', () => {
     }
   });
 
+  it('alarme dispara com qualquer mensagem na DLQ', () => {
+    template.hasResourceProperties('AWS::CloudWatch::Alarm', {
+      MetricName: 'ApproximateNumberOfMessagesVisible',
+      Threshold: 1,
+      ComparisonOperator: 'GreaterThanOrEqualToThreshold',
+      TreatMissingData: 'notBreaching',
+    });
+  });
+
   it('processor consome a fila com partial batch response', () => {
     template.hasResourceProperties('AWS::Lambda::EventSourceMapping', {
       BatchSize: 5,

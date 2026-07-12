@@ -3,6 +3,11 @@ import { CfnOutput, Duration, RemovalPolicy, Stack, type StackProps } from 'aws-
 import { CorsHttpMethod, HttpApi, HttpMethod } from 'aws-cdk-lib/aws-apigatewayv2';
 import { HttpJwtAuthorizer } from 'aws-cdk-lib/aws-apigatewayv2-authorizers';
 import { HttpLambdaIntegration } from 'aws-cdk-lib/aws-apigatewayv2-integrations';
+import {
+  Alarm,
+  ComparisonOperator,
+  TreatMissingData,
+} from 'aws-cdk-lib/aws-cloudwatch';
 import { AccountRecovery, UserPool, type UserPoolClient } from 'aws-cdk-lib/aws-cognito';
 import { AttributeType, BillingMode, ProjectionType, Table } from 'aws-cdk-lib/aws-dynamodb';
 import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
@@ -80,6 +85,19 @@ export class SnaptabStack extends Stack {
         queue: this.ingestDlq,
         maxReceiveCount: 3,
       },
+    });
+
+    // Mensagem na DLQ = recibo que falhou após todos os retries. O alarme
+    // torna isso visível no console; notificação (SNS/email) está no backlog.
+    new Alarm(this, 'IngestDlqAlarm', {
+      metric: this.ingestDlq.metricApproximateNumberOfMessagesVisible({
+        period: Duration.minutes(1),
+      }),
+      threshold: 1,
+      evaluationPeriods: 1,
+      comparisonOperator: ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+      treatMissingData: TreatMissingData.NOT_BREACHING,
+      alarmDescription: 'Snaptab: mensagens na ingest-dlq (recibo não processado)',
     });
 
     this.receiptsBucket = new Bucket(this, 'ReceiptsBucket', {

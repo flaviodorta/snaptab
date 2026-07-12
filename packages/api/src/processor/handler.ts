@@ -9,6 +9,7 @@ import {
 } from '@snaptab/shared';
 import type { SQSBatchItemFailure, SQSBatchResponse, SQSEvent, SQSRecord } from 'aws-lambda';
 import { requireEnv } from '../lib/env';
+import { logError, logInfo, logWarn } from '../lib/log';
 import { IrrecoverableError } from './errors';
 import { parseExpense, UNKNOWN_MERCHANT, type ParsedExpense } from './parse-expense';
 import { storeReceipt } from './store-receipt';
@@ -30,10 +31,12 @@ export async function handler(event: SQSEvent): Promise<SQSBatchResponse> {
       await processRecord(record);
     } catch (err) {
       if (err instanceof IrrecoverableError) {
-        console.warn(JSON.stringify({ msg: 'mensagem descartada', reason: err.message }));
+        logWarn('mensagem descartada (irrecuperável)', { reason: err.message });
         continue; // ack consciente
       }
-      console.error('falha recuperável, mensagem volta pra fila:', err);
+      logError('falha recuperável, mensagem volta pra fila', err, {
+        messageId: record.messageId,
+      });
       batchItemFailures.push({ itemIdentifier: record.messageId });
     }
   }
@@ -104,7 +107,5 @@ async function processReceipt(
   });
 
   const result = await storeReceipt({ ddb, tableName: requireEnv('TABLE_NAME'), receipt });
-  console.log(
-    JSON.stringify({ msg: 'recibo gravado', receiptId, userId, status: receipt.status, result }),
-  );
+  logInfo('recibo gravado', { receiptId, userId, status: receipt.status, result });
 }

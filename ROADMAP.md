@@ -154,11 +154,11 @@ Objetivo: usuário conserta o que o OCR errou.
 
 Objetivo: o projeto se apresenta sozinho.
 
-- [ ] README: o que é, diagrama de arquitetura, decisões (o "porquê" de cada peça), como rodar, screenshots/GIF
-- [ ] Logs estruturados (JSON) nas Lambdas + alarme CloudWatch para mensagens na DLQ
-- [ ] Revisão final de IAM (nenhum `*` sobrou)
-- [ ] Revisão de custos (tudo dentro do free tier / on-demand)
-- [ ] Deploy final limpo a partir do zero (`cdk destroy` + `cdk deploy` pra provar reprodutibilidade)
+- [x] README: o que é, diagrama de arquitetura, decisões (o "porquê" de cada peça), como rodar (screenshots: pendente — tirar do browser)
+- [x] Logs estruturados (JSON) nas Lambdas (`lib/log.ts`) + alarme CloudWatch para mensagens na DLQ
+- [x] Revisão final de IAM: único `Resource: *` é o `textract:AnalyzeExpense` (serviço sem permissão por recurso — exceção documentada)
+- [x] Revisão de custos (tudo on-demand / free tier; seção no README)
+- [x] Deploy final limpo a partir do zero — `cdk destroy` + `cdk deploy` (125s) + smoke test do pipeline completo no stack novo
 
 **Aceite:** um recrutador clona, lê o README e entende arquitetura e decisões em 5 minutos.
 

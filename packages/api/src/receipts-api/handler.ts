@@ -14,6 +14,7 @@ import type {
 import { getUserId } from '../lib/auth';
 import { requireEnv } from '../lib/env';
 import { jsonResponse, parseJsonBody } from '../lib/http';
+import { logError } from '../lib/log';
 import { decodeCursor } from './cursor';
 import { getReceipt } from './get-receipt';
 import { getSummary } from './get-summary';
@@ -31,17 +32,23 @@ export async function handler(
     return jsonResponse(401, { error: 'não autenticado' });
   }
 
-  switch (event.routeKey) {
-    case 'GET /receipts':
-      return list(event, userId);
-    case 'GET /receipts/{id}':
-      return detail(event, userId);
-    case 'GET /summary':
-      return summary(event, userId);
-    case 'PATCH /receipts/{id}':
-      return update(event, userId);
-    default:
-      return jsonResponse(404, { error: 'rota desconhecida' });
+  try {
+    switch (event.routeKey) {
+      case 'GET /receipts':
+        return await list(event, userId);
+      case 'GET /receipts/{id}':
+        return await detail(event, userId);
+      case 'GET /summary':
+        return await summary(event, userId);
+      case 'PATCH /receipts/{id}':
+        return await update(event, userId);
+      default:
+        return jsonResponse(404, { error: 'rota desconhecida' });
+    }
+  } catch (err) {
+    // 500 controlado (com CORS/JSON) + log estruturado, em vez do default do API GW.
+    logError('erro não tratado na receipts-api', err, { routeKey: event.routeKey });
+    return jsonResponse(500, { error: 'erro interno' });
   }
 }
 

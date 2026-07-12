@@ -7,6 +7,7 @@ import {
   type ListReceiptsResponse,
   type Receipt,
 } from '@snaptab/shared';
+import { logWarn } from '../lib/log';
 import { encodeCursor, type Cursor } from './cursor';
 
 export async function listReceipts(params: {
@@ -71,7 +72,7 @@ export async function listReceipts(params: {
     if (parsed.success) {
       items.push(parsed.data);
     } else {
-      console.warn(JSON.stringify({ msg: 'item fora do schema ignorado na listagem', sk: item.SK }));
+      logWarn('item fora do schema ignorado na listagem', { sk: item.SK });
     }
   }
 

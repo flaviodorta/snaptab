@@ -7,6 +7,7 @@ import type {
 import { getUserId } from '../lib/auth';
 import { requireEnv } from '../lib/env';
 import { jsonResponse, parseJsonBody } from '../lib/http';
+import { logError } from '../lib/log';
 import { createUploadUrl } from './create-upload';
 
 const s3 = new S3Client({});
@@ -26,11 +27,16 @@ export async function handler(
     });
   }
 
-  const response = await createUploadUrl({
-    s3,
-    bucket: requireEnv('BUCKET_NAME'),
-    userId,
-    request: parsed.data,
-  });
-  return jsonResponse(201, response);
+  try {
+    const response = await createUploadUrl({
+      s3,
+      bucket: requireEnv('BUCKET_NAME'),
+      userId,
+      request: parsed.data,
+    });
+    return jsonResponse(201, response);
+  } catch (err) {
+    logError('erro não tratado no upload-url', err);
+    return jsonResponse(500, { error: 'erro interno' });
+  }
 }
