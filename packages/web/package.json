@@ -1,0 +1,14 @@
+{
+  "name": "@snaptab/web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "echo 'Frontend chega na Fase 6 (Vite + React). Por enquanto não há o que subir.'",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@snaptab/shared": "workspace:*"
+  }
+}
