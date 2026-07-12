@@ -39,14 +39,14 @@ Objetivo: fonte da verdade de tipos e validação, antes de qualquer infra ou ha
 
 Objetivo: todos os recursos AWS declarados, sintetizando sem erro (deploy ainda opcional).
 
-- [ ] Bootstrap CDK + stack `SnaptabStack`
-- [ ] S3 `receipts-bucket` (bloqueio de acesso público, CORS pro presigned PUT)
-- [ ] DynamoDB `snaptab-main`: `PK`/`SK` + `GSI1` (`GSI1PK`/`GSI1SK`), billing on-demand
-- [ ] SQS `ingest-queue` + `ingest-dlq` (maxReceiveCount definido)
-- [ ] Notificação S3 `ObjectCreated` → `ingest-queue`
-- [ ] Cognito User Pool + client (signup/login, JWT)
-- [ ] API Gateway (HTTP API) com JWT authorizer do Cognito
-- [ ] IAM least privilege por Lambda (roles criadas junto com cada função nas fases seguintes)
+- [x] Stack `SnaptabStack` criado (`cdk bootstrap` real acontece no primeiro deploy, Fase 3)
+- [x] S3 `receipts-bucket` (bloqueio de acesso público, CORS pro presigned PUT)
+- [x] DynamoDB `snaptab-main`: `PK`/`SK` + `GSI1` (`GSI1PK`/`GSI1SK`), billing on-demand
+- [x] SQS `ingest-queue` + `ingest-dlq` (maxReceiveCount 3)
+- [x] Notificação S3 `ObjectCreated` → `ingest-queue`
+- [x] Cognito User Pool + client (signup/login, JWT)
+- [x] API Gateway (HTTP API) com JWT authorizer do Cognito como default de toda rota
+- [x] IAM least privilege por Lambda (roles criadas junto com cada função nas fases seguintes)
 
 **Aceite:** `pnpm --filter infra cdk synth` gera CloudFormation limpo; `cdk diff` revisável.
 
