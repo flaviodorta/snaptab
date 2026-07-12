@@ -1,2 +1,6 @@
-// Fonte da verdade: tipos e schemas zod do domínio — preenchido na Fase 1.
-export {};
+// Fonte da verdade do domínio: api/ e web/ importam tipos e schemas daqui.
+export * from './category';
+export * from './receipt';
+export * from './api';
+export * from './events';
+export * from './keys';

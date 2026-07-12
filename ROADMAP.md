@@ -25,11 +25,11 @@ Objetivo: esqueleto do repo compilando, testando e lintando (mesmo vazio).
 
 Objetivo: fonte da verdade de tipos e validação, antes de qualquer infra ou handler.
 
-- [ ] Schema zod `Receipt` (id, userId, total, data, estabelecimento, categoria, s3Key, status, timestamps)
-- [ ] Schema `Category` + união literal das categorias v2 (com `"Outros"`)
-- [ ] Schemas das bordas: body do request de upload, payload do evento S3→SQS, resposta da API
-- [ ] Helpers de chave DynamoDB (`USER#<id>`, `RECEIPT#<id>`, `CAT#<cat>`, `DATE#<iso>`) — puros e testados
-- [ ] Testes vitest dos schemas (casos válidos/inválidos)
+- [x] Schema zod `Receipt` (id, userId, total, data, estabelecimento, categoria, s3Key, status, timestamps)
+- [x] Schema `Category` + união literal das categorias v2 (com `"Outros"`)
+- [x] Schemas das bordas: body do request de upload, payload do evento S3→SQS, resposta da API
+- [x] Helpers de chave DynamoDB (`USER#<id>`, `RECEIPT#<id>`, `CAT#<cat>`, `DATE#<iso>`) — puros e testados
+- [x] Testes vitest dos schemas (casos válidos/inválidos)
 
 **Aceite:** `api` e `web` poderão importar tudo daqui; zero duplicação de shape.
 
