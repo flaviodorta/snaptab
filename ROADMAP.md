@@ -100,12 +100,12 @@ Objetivo: dados saem do DynamoDB pro cliente.
 
 Objetivo: v1 completo de ponta a ponta na UI.
 
-- [ ] Vite + React + TS + TanStack Query + roteamento
-- [ ] Auth Cognito (signup, login, logout, guarda de rotas, refresh de token)
-- [ ] Tela de upload: pega presigned URL → PUT direto no S3 → feedback de "processando"
-- [ ] Lista de recibos (polling/refetch até o processor concluir)
-- [ ] Detalhe do recibo (dados extraídos + imagem)
-- [ ] Nenhuma lógica de negócio em componente; fetching só via TanStack Query
+- [x] Vite + React + TS + TanStack Query + roteamento
+- [x] Auth Cognito (signup com confirmação por código, login SRP, logout, guarda de rotas, refresh via getSession)
+- [x] Tela de upload: pega presigned URL → PUT direto no S3 → feedback de "processando"
+- [x] Lista de recibos (polling de 3s enquanto houver upload pendente; para sozinho)
+- [x] Detalhe do recibo (dados extraídos + imagem via presigned GET)
+- [x] Nenhuma lógica de negócio em componente; fetching só via TanStack Query
 
 **Aceite (marco v1):** fluxo completo — cadastro → foto → OCR → recibo na lista — funcionando em deploy real.
 
