@@ -14,10 +14,12 @@
     "@aws-sdk/lib-dynamodb": "^3.1085.0",
     "@aws-sdk/s3-request-presigner": "^3.1085.0",
     "@snaptab/shared": "workspace:*",
-    "ulid": "^3.0.2"
+    "ulid": "^3.0.2",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/aws-lambda": "^8.10.162",
+    "@types/node": "^26.1.1",
     "aws-sdk-client-mock": "^4.1.0"
   }
 }

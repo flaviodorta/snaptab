@@ -4,6 +4,7 @@ import type {
   APIGatewayProxyEventV2WithJWTAuthorizer,
   APIGatewayProxyStructuredResultV2,
 } from 'aws-lambda';
+import { getUserId } from '../lib/auth';
 import { requireEnv } from '../lib/env';
 import { jsonResponse, parseJsonBody } from '../lib/http';
 import { createUploadUrl } from './create-upload';
@@ -13,9 +14,8 @@ const s3 = new S3Client({});
 export async function handler(
   event: APIGatewayProxyEventV2WithJWTAuthorizer,
 ): Promise<APIGatewayProxyStructuredResultV2> {
-  // O authorizer JWT já validou o token; aqui só extraímos a identidade.
-  const sub = event.requestContext.authorizer?.jwt?.claims?.sub;
-  if (typeof sub !== 'string' || sub === '') {
+  const userId = getUserId(event);
+  if (!userId) {
     return jsonResponse(401, { error: 'não autenticado' });
   }
 
@@ -29,7 +29,7 @@ export async function handler(
   const response = await createUploadUrl({
     s3,
     bucket: requireEnv('BUCKET_NAME'),
-    userId: sub,
+    userId,
     request: parsed.data,
   });
   return jsonResponse(201, response);

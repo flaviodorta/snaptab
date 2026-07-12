@@ -86,11 +86,11 @@ Objetivo: o coração do pipeline. Mensagem SQS vira item estruturado na tabela.
 
 Objetivo: dados saem do DynamoDB pro cliente.
 
-- [ ] Lambda `receipts-api`: `GET /receipts` (lista do usuário, mais recentes primeiro — query `PK = USER#`, `begins_with RECEIPT#`)
-- [ ] `GET /receipts/:id` (detalhe + presigned GET da imagem)
-- [ ] Paginação por cursor (LastEvaluatedKey encodado)
-- [ ] userId sempre extraído do JWT (claims), nunca do input
-- [ ] Testes do mapeamento item→domínio
+- [x] Lambda `receipts-api`: `GET /receipts` (lista do usuário, mais recentes primeiro — query `PK = USER#`, `begins_with RECEIPT#`)
+- [x] `GET /receipts/:id` (detalhe + presigned GET da imagem)
+- [x] Paginação por cursor (LastEvaluatedKey encodado; cursor só carrega SK — PK sempre vem do JWT)
+- [x] userId sempre extraído do JWT (claims), nunca do input
+- [x] Testes do mapeamento item→domínio
 
 **Aceite:** `curl` autenticado lista e detalha recibos reais processados.
 

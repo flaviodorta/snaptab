@@ -47,10 +47,16 @@ importers:
       ulid:
         specifier: ^3.0.2
         version: 3.0.2
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
     devDependencies:
       '@types/aws-lambda':
         specifier: ^8.10.162
         version: 8.10.162
+      '@types/node':
+        specifier: ^26.1.1
+        version: 26.1.1
       aws-sdk-client-mock:
         specifier: ^4.1.0
         version: 4.1.0

@@ -56,11 +56,17 @@ describe('SnaptabStack', () => {
     });
   });
 
-  it('rota de upload protegida pelo authorizer JWT', () => {
-    template.hasResourceProperties('AWS::ApiGatewayV2::Route', {
-      RouteKey: 'POST /receipts/upload-url',
-      AuthorizationType: 'JWT',
-    });
+  it('todas as rotas protegidas pelo authorizer JWT', () => {
+    for (const routeKey of [
+      'POST /receipts/upload-url',
+      'GET /receipts',
+      'GET /receipts/{id}',
+    ]) {
+      template.hasResourceProperties('AWS::ApiGatewayV2::Route', {
+        RouteKey: routeKey,
+        AuthorizationType: 'JWT',
+      });
+    }
   });
 
   it('processor consome a fila com partial batch response', () => {

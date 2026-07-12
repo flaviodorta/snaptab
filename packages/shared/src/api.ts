@@ -18,6 +18,12 @@ export const uploadUrlResponseSchema = z.object({
 });
 export type UploadUrlResponse = z.infer<typeof uploadUrlResponseSchema>;
 
+export const listReceiptsQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+  cursor: z.string().optional(),
+});
+export type ListReceiptsQuery = z.infer<typeof listReceiptsQuerySchema>;
+
 export const listReceiptsResponseSchema = z.object({
   items: z.array(receiptSchema),
   // Cursor opaco (LastEvaluatedKey encodado) — ausente na última página.

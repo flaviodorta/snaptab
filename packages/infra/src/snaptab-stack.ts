@@ -157,6 +157,37 @@ export class SnaptabStack extends Stack {
       integration: new HttpLambdaIntegration('UploadUrlIntegration', uploadUrlFn),
     });
 
+    const receiptsApiFn = new NodejsFunction(this, 'ReceiptsApiFn', {
+      entry: apiEntry('receipts-api/handler.ts'),
+      handler: 'handler',
+      runtime: Runtime.NODEJS_20_X,
+      memorySize: 256,
+      timeout: Duration.seconds(10),
+      depsLockFilePath: DEPS_LOCK_FILE,
+      environment: {
+        TABLE_NAME: this.table.tableName,
+        BUCKET_NAME: this.receiptsBucket.bucketName,
+      },
+    });
+    this.table.grantReadData(receiptsApiFn);
+    // Presigned GET da imagem é assinado com as credenciais desta role.
+    this.receiptsBucket.grantRead(receiptsApiFn);
+
+    const receiptsApiIntegration = new HttpLambdaIntegration(
+      'ReceiptsApiIntegration',
+      receiptsApiFn,
+    );
+    this.httpApi.addRoutes({
+      path: '/receipts',
+      methods: [HttpMethod.GET],
+      integration: receiptsApiIntegration,
+    });
+    this.httpApi.addRoutes({
+      path: '/receipts/{id}',
+      methods: [HttpMethod.GET],
+      integration: receiptsApiIntegration,
+    });
+
     const processorFn = new NodejsFunction(this, 'ProcessorFn', {
       entry: apiEntry('processor/handler.ts'),
       handler: 'handler',
