@@ -154,7 +154,7 @@ Objetivo: usuário conserta o que o OCR errou.
 
 Objetivo: o projeto se apresenta sozinho.
 
-- [x] README: o que é, diagrama de arquitetura, decisões (o "porquê" de cada peça), como rodar (screenshots: pendente — tirar do browser)
+- [x] README em inglês: diagramas Mermaid da arquitetura, decisões (o "porquê" de cada peça), como rodar, screenshots reais (capturados via puppeteer)
 - [x] Logs estruturados (JSON) nas Lambdas (`lib/log.ts`) + alarme CloudWatch para mensagens na DLQ
 - [x] Revisão final de IAM: único `Resource: *` é o `textract:AnalyzeExpense` (serviço sem permissão por recurso — exceção documentada)
 - [x] Revisão de custos (tudo on-demand / free tier; seção no README)

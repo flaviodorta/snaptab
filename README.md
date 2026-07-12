@@ -1,108 +1,152 @@
 # Snaptab 📸🧾
 
-**Rastreador de despesas serverless: fotografe um recibo → OCR extrai valor, data e estabelecimento → dashboard com totais por categoria.**
+**Serverless expense tracker: photograph a receipt → OCR extracts the total, date and merchant → dashboard with spending by category.**
 
-Projeto de portfólio full stack: TypeScript de ponta a ponta, arquitetura event-driven na AWS e infraestrutura 100% como código (CDK). Nenhum recurso foi criado clicando no console.
+Full-stack portfolio project: end-to-end TypeScript, event-driven AWS architecture, and 100% infrastructure-as-code (CDK). Not a single resource was created by clicking in the console.
+
+| Receipts with filters | Dashboard |
+|---|---|
+| ![Receipt list](docs/screenshots/receipts.png) | ![Dashboard](docs/screenshots/dashboard.png) |
+
+| Login | Receipt detail |
+|---|---|
+| ![Login](docs/screenshots/login.png) | ![Detail](docs/screenshots/detail.png) |
 
 ---
 
-## Como funciona
+## Architecture
 
-1. O usuário autenticado (Cognito) pede uma **presigned URL** e sobe a foto direto pro S3 — o backend nunca recebe o arquivo.
-2. O evento `ObjectCreated` cai numa **fila SQS**; uma Lambda consome em batch, chama o **Textract** (`AnalyzeExpense`), parseia total/data/estabelecimento, **categoriza por palavra-chave** e grava no **DynamoDB** — recibo e agregado de categoria na mesma transação.
-3. O frontend (React + TanStack Query) faz polling até o recibo aparecer, lista com filtros por data/categoria e mostra um dashboard cujos totais vêm de agregados mantidos na escrita — nunca recomputados varrendo a tabela.
-4. OCR errou? O usuário corrige inline; os agregados são reajustados atomicamente.
+```mermaid
+flowchart LR
+    SPA[React + Vite SPA<br/>TanStack Query]
 
+    subgraph AWS
+        COG[Cognito<br/>user pool]
+        APIGW[API Gateway HTTP API<br/>JWT authorizer on every route]
+        UP["λ upload-url"]
+        RA["λ receipts-api"]
+        S3[("S3<br/>receipts bucket")]
+        Q[SQS ingest-queue]
+        DLQ[SQS ingest-dlq]
+        AL[CloudWatch alarm]
+        P["λ processor"]
+        TX[Textract<br/>AnalyzeExpense]
+        DB[("DynamoDB<br/>snaptab-main")]
+    end
+
+    SPA -- SRP auth --> COG
+    SPA -- "POST /receipts/upload-url" --> APIGW --> UP
+    SPA -- "PUT image (presigned)" --> S3
+    S3 -- ObjectCreated --> Q --> P
+    P --> TX
+    P -- "TransactWrite:<br/>receipt + CAT# aggregate" --> DB
+    Q -. "3 failed attempts" .-> DLQ -.-> AL
+    SPA -- "GET /receipts · GET /summary<br/>PATCH /receipts/:id" --> APIGW --> RA --> DB
 ```
-[React/TS]
-   │  1. pede presigned URL
-   ▼
-[API Gateway] → [Lambda: upload-url]  ── presigned PUT ──► [S3: receipts-bucket]
-  (JWT authorizer                                                │
-   do Cognito em                                    2. ObjectCreated event
-   toda rota)                                                    ▼
-                                                          [SQS: ingest-queue]
-                                                                 │  3. batch + partial batch response
-                                                                 ▼
-                                                       [Lambda: processor]
-                                                         ├─ Textract (OCR)
-                                                         ├─ parse + zod + categorização
-                                                         └─ TransactWrite ──► [DynamoDB: snaptab-main]
-                                                                 │                (recibo + agregado CAT#)
-                                                   falhas após 3 tentativas
-                                                                 ▼
-                                                          [SQS: ingest-dlq] ─► [CloudWatch Alarm]
 
-[React/TS] ── GET /receipts, /summary, PATCH /receipts/:id ──► [Lambda: receipts-api] ─► [DynamoDB]
+### The ingest pipeline, step by step
+
+```mermaid
+sequenceDiagram
+    participant SPA as React SPA
+    participant API as API Gateway (JWT)
+    participant S3
+    participant SQS as ingest-queue
+    participant P as λ processor
+    participant TX as Textract
+    participant DDB as DynamoDB
+
+    SPA->>API: POST /receipts/upload-url
+    API-->>SPA: presigned PUT URL + receiptId (ULID)
+    SPA->>S3: PUT image (content-type locked by signature)
+    S3--)SQS: ObjectCreated event
+    SQS->>P: batch (partial batch response)
+    P->>TX: AnalyzeExpense
+    TX-->>P: merchant / total / date
+    Note over P: pure parser + zod validation<br/>+ keyword categorization
+    P->>DDB: TransactWriteItems — receipt + CAT# aggregate<br/>(condition makes replays a no-op)
+    SPA->>API: GET /receipts (3s polling while pending)
+    API-->>SPA: receipt shows up, polling stops
 ```
 
-## Decisões de arquitetura (e os porquês)
+The upload never touches a Lambda: the browser PUTs straight to S3 with a presigned URL whose signature locks the content type. Processing is fully asynchronous — the queue absorbs spikes, retries transient failures, and dead-letters anything that fails 3 times (which trips a CloudWatch alarm).
 
-| Decisão | Por quê |
+## Design decisions (and the *why* behind each)
+
+| Decision | Why |
 |---|---|
-| **S3 → SQS → Lambda** (não S3 → Lambda direto) | Desacopla upload de OCR: retry automático, DLQ, absorve picos. Upload responde rápido; OCR roda em background. |
-| **DynamoDB single-table** (`PK`/`SK` + GSI1) | Acesso sempre por chave, escala serverless, sem pool de conexão em Lambda. Toda query cabe num access pattern — **zero `Scan` em caminho quente**. |
-| **`receiptId` é ULID** (não UUID) | Ordena lexicograficamente por criação → o SK `RECEIPT#<id>` sai do Dynamo já em "mais recentes primeiro" com `ScanIndexForward=false`, sem sort na aplicação. |
-| **Dinheiro em centavos inteiros** | `totalCents: 6949`, nunca float. Parser aceita "R$ 1.234,56" e "1,234.56". |
-| **Recibo + agregado `CAT#` numa `TransactWriteItems`** | Idempotência de verdade: reprocessar a mesma mensagem SQS cancela a transação inteira (condition no Put) — o agregado nunca soma duas vezes; um crash nunca deixa os dois divergentes. |
-| **Chave de idempotência = object key do S3** (`<userId>/<receiptId>`) | Reentrega de evento → `already-exists`, sem duplicata (provado com evento duplicado real). |
-| **Erros tipados no processor** | `IrrecoverableError` (TestEvent, key malformada) → ack consciente; ilegível → item `failed` que o usuário corrige; resto → retry → DLQ → alarme. |
-| **Cursor de paginação só carrega sort keys** | O partition key vem sempre do JWT na hora da query — cursor forjado não pagina dados de outro usuário. |
-| **Edição manual com lock otimista** | O PATCH condiciona nos valores lidos (`status`, `category`, `totalCents`); edição concorrente → 409, nunca agregado corrompido. |
-| **Validação zod nas bordas, schemas em `shared/`** | Body de request, payload SQS, saída do Textract e config: tudo passa por schema antes de virar tipo de domínio. `api` e `web` importam do mesmo lugar. |
-| **IAM least privilege** | Cada Lambda só tem o que usa. Única exceção documentada: `textract:AnalyzeExpense` exige `Resource: *` (Textract não tem permissão por recurso). |
-| **Cognito + JWT authorizer como default** | Toda rota nasce protegida (`defaultAuthorizer`); `userId` sai das claims, nunca do input. |
+| **S3 → SQS → Lambda** (not S3 → Lambda directly) | Decouples upload from OCR: automatic retries, DLQ, spike absorption. Upload responds instantly; OCR runs in the background. |
+| **DynamoDB single-table** (`PK`/`SK` + one GSI) | Every access is key-based, serverless scaling, no connection pools inside Lambda. Every query fits a designed access pattern — **zero `Scan` on any hot path**. |
+| **`receiptId` is a ULID** (not UUID) | ULIDs sort lexicographically by creation time → the `RECEIPT#<id>` sort key comes back from DynamoDB already in "newest first" order with `ScanIndexForward=false`. No application-side sorting, ever. |
+| **Money is integer cents** | `totalCents: 6949`, never floats. One parser (in `shared/`) handles both "R$ 1.234,56" and "1,234.56" — used by the OCR pipeline *and* the edit form in the browser. |
+| **Receipt + `CAT#` aggregate in one `TransactWriteItems`** | True idempotency: replaying the same SQS message cancels the whole transaction (condition on the Put), so the aggregate can never be double-counted; and a crash can never leave receipt and aggregate out of sync. |
+| **Idempotency key = S3 object key** (`<userId>/<receiptId>`) | Duplicate event delivery → `already-exists`, no duplicate rows (proven live by replaying a real S3 event). |
+| **Typed errors in the processor** | `IrrecoverableError` (S3 test event, malformed key) → conscious ack; unreadable document → `failed` item the user can fix; everything else → retry → DLQ → alarm. |
+| **Pagination cursors carry sort keys only** | The partition key is always rebuilt from the JWT at query time — a forged cursor can never page through another user's data. |
+| **Manual correction with optimistic locking** | The PATCH transaction is conditioned on the values the deltas were computed from (`status`, `category`, `totalCents`); a concurrent edit returns 409 instead of silently corrupting aggregates. |
+| **zod validation at every boundary, schemas in `shared/`** | Request bodies, SQS payloads, Textract output, even frontend env config — everything is validated before becoming a domain type. `api` and `web` import the exact same schemas. |
+| **IAM least privilege** | Each Lambda gets only what it uses. The single documented exception: `textract:AnalyzeExpense` requires `Resource: *` (Textract has no resource-level permissions). |
+| **Cognito JWT as the API's `defaultAuthorizer`** | Every route is born protected; `userId` comes from token claims, never from client input. |
 
-## Stack
+## Data model
 
-Monorepo pnpm — Node 20, TypeScript strict em tudo:
+Single table `snaptab-main`:
+
+| Entity | PK | SK | GSI1PK | GSI1SK |
+|---|---|---|---|---|
+| Receipt | `USER#<id>` | `RECEIPT#<ulid>` | `USER#<id>` | `DATE#<yyyy-mm-dd>` |
+| Category aggregate | `USER#<id>` | `CAT#<category>` | — | — |
+
+Access patterns, all key-based:
+
+- **List receipts (newest first)** — `PK = USER#id AND begins_with(SK, 'RECEIPT#')`, descending (ULID = creation order)
+- **Receipts by date range** — GSI1, `GSI1SK BETWEEN DATE#from AND DATE#to` (purchase-date order)
+- **Spending by category** — the `CAT#` items, maintained atomically on every write (never recomputed by scanning)
+- **Category filter** — `FilterExpression` on top of a partition-scoped query (not a `Scan`)
+
+## Monorepo layout
+
+pnpm workspaces — Node 20, strict TypeScript everywhere, no `any`:
 
 ```
 packages/
-├── shared/   # fonte da verdade: tipos, schemas zod, chaves do Dynamo, categorização
-├── infra/    # AWS CDK (stack + testes de assertions)
-├── api/      # Lambdas: upload-url, processor, receipts-api (lógica pura fora dos handlers)
-└── web/      # React + Vite + TanStack Query (zero lógica de negócio em componente)
+├── shared/   # source of truth: domain types, zod schemas, Dynamo key builders, categorization rules
+├── infra/    # AWS CDK stack + assertion tests (table keys, DLQ policy, JWT routes, alarm)
+├── api/      # Lambda handlers: upload-url, processor, receipts-api — business logic lives in pure, testable modules
+└── web/      # React + Vite + TanStack Query — zero business logic in components
 ```
 
-## Rodando
+## Getting started
 
-Pré-requisitos: Node 20+, pnpm 10+, conta AWS com credenciais configuradas e `cdk bootstrap` feito na região (Textract não existe em `sa-east-1` — use `us-east-1`).
+Prerequisites: Node 20+, pnpm 10+, an AWS account with credentials configured and `cdk bootstrap` done in the region. Use `us-east-1` — Textract is not available in `sa-east-1` (São Paulo).
 
 ```bash
 pnpm install
-pnpm typecheck && pnpm test && pnpm lint   # 88 testes, sem AWS
+pnpm typecheck && pnpm test && pnpm lint    # 88 tests, no AWS required
 
-# deploy da infra (gera os outputs de config)
+# deploy the whole stack (outputs the config the frontend needs)
 pnpm --filter infra cdk deploy
 
-# frontend: copie os outputs do deploy pro env
-cp packages/web/.env.example packages/web/.env.local   # e preencha
-pnpm dev                                                # http://localhost:5173
+# frontend: fill .env.local with the deploy outputs
+cp packages/web/.env.example packages/web/.env.local
+pnpm dev                                     # http://localhost:5173
 ```
 
-Testes unitários não precisam de AWS: parser do Textract roda contra fixtures, handlers contra `aws-sdk-client-mock`, stack contra assertions do CDK.
+Tear everything down with `pnpm --filter infra cdk destroy` — buckets auto-delete their objects, nothing is left behind. A fresh `deploy` from zero takes ~2 minutes (verified).
 
-## Modelo de dados
+## Testing
 
-Tabela única `snaptab-main`:
+Unit tests never touch AWS:
 
-| Entidade | PK | SK | GSI1PK | GSI1SK |
-|---|---|---|---|---|
-| Recibo | `USER#<id>` | `RECEIPT#<ulid>` | `USER#<id>` | `DATE#<yyyy-mm-dd>` |
-| Agregado categoria | `USER#<id>` | `CAT#<categoria>` | — | — |
+- **Parsers** (money, dates, Textract output) run against realistic `AnalyzeExpense` fixtures — including Brazilian formats ("R$ 1.187,45", "11/07/2026 18:45:12") and unreadable-receipt cases.
+- **Handlers** run against [`aws-sdk-client-mock`](https://www.npmjs.com/package/aws-sdk-client-mock), asserting the exact DynamoDB expressions (conditions, transactions, key shapes).
+- **Infrastructure** is locked by CDK assertion tests: table keys, DLQ `maxReceiveCount`, public-access block, JWT on every route, the DLQ alarm.
+- **CI** (GitHub Actions) runs typecheck + tests + lint on every push.
 
-Access patterns: listar recibos (PK + `begins_with`), por período (GSI1 `BETWEEN`), totais por categoria (itens `CAT#`), filtro por categoria (`FilterExpression` dentro da partição).
+## Cost
 
-## Custos
+Everything is on-demand / free tier: DynamoDB and Lambda stay in the permanent free tier at portfolio scale, SQS/S3 cost cents, and Textract charges per analyzed page (~US$ 0.01 per receipt). A month of personal use costs less than a coffee.
 
-Tudo on-demand / free tier: DynamoDB e Lambda no free tier permanente, SQS/S3 centavos, Textract cobra por página analisada (~US$ 0,01/recibo). Um mês de uso pessoal custa menos que um café. `cdk destroy` derruba tudo sem sobras (buckets com `autoDeleteObjects`).
+## Out of scope (deliberate backlog)
 
-## Screenshots
-
-<!-- TODO: adicionar screenshots — login, lista com filtros, detalhe com edição, dashboard -->
-*Em breve — rode `pnpm dev` e veja ao vivo.*
-
-## Backlog (fora de escopo por decisão)
-
-Notificações SNS/SES, export CSV/PDF, multi-moeda, OCR de múltiplos itens por recibo, compartilhamento entre usuários. Ver [ROADMAP.md](ROADMAP.md) pro histórico de construção fase a fase.
+SNS/SES notifications, CSV/PDF export, multi-currency, per-line-item OCR, receipt sharing between users. See [ROADMAP.md](ROADMAP.md) for the phase-by-phase build history (in Portuguese).
