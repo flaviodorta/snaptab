@@ -1,0 +1,15 @@
+{
+  "DocumentMetadata": { "Pages": 1 },
+  "ExpenseDocuments": [
+    {
+      "ExpenseIndex": 1,
+      "SummaryFields": [
+        {
+          "Type": { "Text": "OTHER", "Confidence": 41.2 },
+          "ValueDetection": { "Text": "###???", "Confidence": 38.0 }
+        }
+      ],
+      "LineItemGroups": []
+    }
+  ]
+}

@@ -4,3 +4,4 @@ export * from './receipt';
 export * from './api';
 export * from './events';
 export * from './keys';
+export * from './textract';

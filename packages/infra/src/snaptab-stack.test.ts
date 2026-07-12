@@ -63,6 +63,13 @@ describe('SnaptabStack', () => {
     });
   });
 
+  it('processor consome a fila com partial batch response', () => {
+    template.hasResourceProperties('AWS::Lambda::EventSourceMapping', {
+      BatchSize: 5,
+      FunctionResponseTypes: ['ReportBatchItemFailures'],
+    });
+  });
+
   it('cognito e http api presentes', () => {
     template.resourceCountIs('AWS::Cognito::UserPool', 1);
     template.resourceCountIs('AWS::ApiGatewayV2::Api', 1);

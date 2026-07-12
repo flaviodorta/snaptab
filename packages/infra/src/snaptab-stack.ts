@@ -5,7 +5,9 @@ import { HttpJwtAuthorizer } from 'aws-cdk-lib/aws-apigatewayv2-authorizers';
 import { HttpLambdaIntegration } from 'aws-cdk-lib/aws-apigatewayv2-integrations';
 import { AccountRecovery, UserPool, type UserPoolClient } from 'aws-cdk-lib/aws-cognito';
 import { AttributeType, BillingMode, ProjectionType, Table } from 'aws-cdk-lib/aws-dynamodb';
+import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { Runtime } from 'aws-cdk-lib/aws-lambda';
+import { SqsEventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import {
   BlockPublicAccess,
@@ -154,6 +156,31 @@ export class SnaptabStack extends Stack {
       // Sem authorizer explícito → herda o JWT do Cognito (defaultAuthorizer).
       integration: new HttpLambdaIntegration('UploadUrlIntegration', uploadUrlFn),
     });
+
+    const processorFn = new NodejsFunction(this, 'ProcessorFn', {
+      entry: apiEntry('processor/handler.ts'),
+      handler: 'handler',
+      runtime: Runtime.NODEJS_20_X,
+      memorySize: 512,
+      timeout: PROCESSOR_TIMEOUT,
+      depsLockFilePath: DEPS_LOCK_FILE,
+      environment: { TABLE_NAME: this.table.tableName },
+    });
+    this.table.grantWriteData(processorFn);
+    // O AnalyzeExpense lê o objeto com as credenciais de quem chama.
+    this.receiptsBucket.grantRead(processorFn);
+    // Exceção documentada ao "nada de *": Textract não tem permissão por
+    // recurso — a action específica é o menor escopo possível.
+    processorFn.addToRolePolicy(
+      new PolicyStatement({ actions: ['textract:AnalyzeExpense'], resources: ['*'] }),
+    );
+    processorFn.addEventSource(
+      new SqsEventSource(this.ingestQueue, {
+        batchSize: 5,
+        // Só as mensagens que falharam voltam pra fila, não o batch inteiro.
+        reportBatchItemFailures: true,
+      }),
+    );
 
     // ─── Outputs que o web/api consomem como config ────────────────────────
     new CfnOutput(this, 'ApiUrl', { value: this.httpApi.apiEndpoint });

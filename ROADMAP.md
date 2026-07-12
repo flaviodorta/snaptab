@@ -70,13 +70,13 @@ Objetivo: primeiro fluxo fim-a-fim parcial — usuário autenticado consegue sub
 
 Objetivo: o coração do pipeline. Mensagem SQS vira item estruturado na tabela.
 
-- [ ] Lambda `processor` com event source mapping da `ingest-queue` (batch + partial batch response)
-- [ ] Chamada Textract (`AnalyzeExpense`) sobre o objeto S3
-- [ ] Módulo puro de parse: total, data, estabelecimento a partir da saída do Textract
-- [ ] Validação zod do resultado antes de gravar
-- [ ] Escrita idempotente no DynamoDB (chave de idempotência = object key do S3; condition expression)
-- [ ] Erros tipados: recuperável → throw (retry/DLQ); irrecuperável → ack consciente + log
-- [ ] Testes vitest do parser com fixtures reais de saída do Textract (sem AWS)
+- [x] Lambda `processor` com event source mapping da `ingest-queue` (batch + partial batch response)
+- [x] Chamada Textract (`AnalyzeExpense`) sobre o objeto S3
+- [x] Módulo puro de parse: total, data, estabelecimento a partir da saída do Textract
+- [x] Validação zod do resultado antes de gravar
+- [x] Escrita idempotente no DynamoDB (chave de idempotência = object key do S3; condition expression) — provada ao vivo: evento duplicado → `already-exists`, 1 item só
+- [x] Erros tipados: recuperável → throw (retry/DLQ); irrecuperável → ack consciente + log
+- [x] Testes vitest do parser com fixtures reais de saída do Textract (sem AWS)
 
 **Aceite:** foto enviada na Fase 3 vira item `RECEIPT#` na tabela; reprocessar a mesma mensagem não duplica; falha proposital cai na DLQ após N tentativas.
 

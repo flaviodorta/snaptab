@@ -1,0 +1,23 @@
+{
+  "DocumentMetadata": { "Pages": 1 },
+  "ExpenseDocuments": [
+    {
+      "ExpenseIndex": 1,
+      "SummaryFields": [
+        {
+          "Type": { "Text": "VENDOR_NAME", "Confidence": 97.1 },
+          "ValueDetection": { "Text": "PADARIA E CONFEITARIA\nESTRELA DO SUL", "Confidence": 95.3 }
+        },
+        {
+          "Type": { "Text": "INVOICE_RECEIPT_DATE", "Confidence": 98.0 },
+          "ValueDetection": { "Text": "2026-07-08", "Confidence": 96.8 }
+        },
+        {
+          "Type": { "Text": "AMOUNT_PAID", "Confidence": 93.4 },
+          "ValueDetection": { "Text": "23.50", "Confidence": 92.9 }
+        }
+      ],
+      "LineItemGroups": []
+    }
+  ]
+}
